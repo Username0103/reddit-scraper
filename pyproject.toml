@@ -1,9 +1,41 @@
 [build-system]
-# AVOID CHANGING REQUIRES: IT WILL BE UPDATED BY PYSCAFFOLD!
-requires = ["setuptools>=46.1.0", "setuptools_scm[toml]>=5"]
+requires = ["setuptools>=80.1.0", "setuptools_scm[toml]>=5"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools_scm]
-# For smarter version schemes and other configuration options,
-# check out https://github.com/pypa/setuptools_scm
-version_scheme = "no-guess-dev"
+[project]
+name = "reddit-scraper"
+dynamic = ["version"]
+authors = [
+    { "name" = "Username0103", "email" = "Username0103@users.noreply.github.com" },
+]
+description = "Scrapes reddit to add to an sequel database"
+readme = "README.rst"
+requires-python = ">=3.10"
+keywords = [
+
+]
+license = { file = "LICENSE" }
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Natural Language :: English",
+    "Topic :: Utilities",
+]
+dependencies = [
+
+]
+
+[project.urls]
+homepage = "https://github.com/Username0103/AI-TUI"
+issues = "https://github.com/Username0103/AI-TUI/issues"
+
+[project.scripts]
+reddit-scraper = "reddit_scraper.entry:run"
+rdscp = "reddit_scraper.entry:run"
+
