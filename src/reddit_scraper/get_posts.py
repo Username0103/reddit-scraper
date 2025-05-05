@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Generator
+import sys
+from typing import TYPE_CHECKING, Any, Generator, Iterator
 import math
 from datetime import datetime
 
 import praw
 from praw.models import Comment, Submission
 from praw.models.comment_forest import CommentForest
+from prawcore import Forbidden
 
 from reddit_scraper import logger
+from .database import RedditPost
 
 if TYPE_CHECKING:
     from .get_credentials import RedditCredentials
@@ -36,7 +39,7 @@ def format_comments(
     serialized = []
     for comment in comments_list:
         if isinstance(comment, CommentForest):
-            logger.debug(f"skipped comment {comment.id}")
+            logger.info(f"skipped comment {comment.id}")
             continue
         serialized.append(
             {
@@ -46,18 +49,13 @@ def format_comments(
                 "created_utc": datetime.fromtimestamp(comment.created_utc),
                 "distinguished": comment.distinguished,
                 "edited": comment.edited,
-                "reddit_id": comment.id,
-                "is_submitter": comment.is_submitter,
-                "link_id": comment.link_id,
                 "parent_id": comment.parent_id,
-                "permalink": comment.permalink,
                 "replies": format_comments(comment.replies) if comment.replies else [],
                 "saved": comment.saved,
                 "score": comment.score,
                 "stickied": comment.stickied,
                 "submission": str(comment.submission),
                 "subreddit": str(comment.subreddit),
-                "subreddit_id": comment.subreddit_id,
                 "depth": comment.depth,
             }
         )
@@ -65,31 +63,23 @@ def format_comments(
 
 
 def get_post_data(post: Submission) -> dict:
+    author = str(post.author)
     return {
-        "author": str(post.author),
-        "author_flair_text": post.author_flair_text,
+        "author": author if author != "None" else None,
         "created_utc": datetime.fromtimestamp(post.created_utc),
         "distinguished": post.distinguished,
         "edited": post.edited,
-        "reddit_id": post.name,
-        "is_original_content": post.is_original_content,
-        "is_self": post.is_self,
-        "link_flair_template_id": post.author_flair_template_id,
-        "link_flair_text": post.link_flair_text,
         "locked": post.locked,
         "name": post.name,
         "num_comments": post.num_comments,
         "over_18": post.over_18,
-        "permalink": post.permalink,
-        "saved": post.saved,
         "score": post.score,
+        "is_textual": post.is_self,
         "selftext": post.selftext,
         "spoiler": post.spoiler,
-        "stickied": post.stickied,
         "subreddit": str(post.subreddit),
         "title": post.title,
         "upvote_ratio": post.upvote_ratio,
-        "url": post.url,
     }
 
 
@@ -99,19 +89,47 @@ class RedditData:
     comments: list[dict] | None
 
 
+def get_db_ids() -> list[str]:
+    if RedditPost.table_exists():
+        ids = RedditPost.select(RedditPost.name).scalars()
+        return list(ids)
+    return []
+
+def make_sort(api: praw.Reddit, options: Options) -> Iterator[Submission]:
+    sort = options.sort_type
+    sub = api.subreddit(options.subreddit)
+    sort_time = sort.rsplit("-", maxsplit=1)[-1]
+    sort_name = sort.split("-", maxsplit=1)[0]
+    if sort_name in {"top", "controversial"}:
+        return getattr(sub, sort_name)(time_filter=sort_time)
+    return getattr(sub, sort_name)()
+
+
 def get_posts(api: praw.Reddit, options: Options) -> Generator[Any, None, None]:
     max_posts = options.num_posts if options.num_posts != -1 else math.inf
-    posts = api.subreddit(options.subreddit).hot()
+    posts = make_sort(api, options)
     i = 0
-    for post in posts:
-        i += 1
-        if i > max_posts:
-            break
-        logger.info(f"Found post: {post.id} on r/{str(post.subreddit)}")
+    ids = get_db_ids()
+    try:
+        for post in posts:
+            if not post.stickied or post.num_comments < 50 or options.skip_comments:
+                if post.name not in ids:
+                    i += 1
+                    if i > max_posts:
+                        break
+                    ids.append(post.name)
+                    logger.info(f"Found post: {post.name} on r/{str(post.subreddit)}")
 
-        if not options.skip_comments:
-            comment_data = get_comment_data(post)
-        else:
-            comment_data = None
+                    if not options.skip_comments:
+                        comment_data = get_comment_data(post)
+                    else:
+                        comment_data = None
 
-        yield RedditData(get_post_data(post), comment_data)
+                    yield RedditData(get_post_data(post), comment_data)
+                else:
+                    logger.info(f"Skipped post: {post.name} on r/{str(post.subreddit)} due to already being archived")
+            else:
+                logger.info(f"Skipped post: {post.name} on r/{str(post.subreddit)} due to being stickied post with tons of comments")
+    except Forbidden:
+        logger.error("Recieved 403 forbidden response. Double check your API key and create a new reddit application if nothing else works. Make sure to select the script type of application.")
+        sys.exit(1)

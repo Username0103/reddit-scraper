@@ -1,8 +1,9 @@
 import argparse
 import logging
 import sys
+from typing import get_args
 
-from reddit_scraper import __version__, DEFAULT_UA
+from reddit_scraper import __version__, DEFAULT_UA, SORT_TYPE
 from reddit_scraper import main
 
 
@@ -46,6 +47,15 @@ def parse_args(args) -> main.Options:
         type=int,
         help="number of posts to archive. defaults to 5. set to -1 so it runs until you press ctrl-c",
     )
+    sort_types = get_args(SORT_TYPE)
+    parser.add_argument(
+        "-o",
+        "--sort",
+        dest="sort_type",
+        default="hot",
+        choices=sort_types,
+        help=f'type of sort to use on the selected sub. options are: "{'", "'.join(sort_types[:-1])}", or "{sort_types[-1]}".',
+    )
     parser.add_argument(
         "-c",
         "--clear",
@@ -57,7 +67,7 @@ def parse_args(args) -> main.Options:
     parser.add_argument(
         "-k",
         "--skip-comments",
-        dest="to_skip",
+        dest="skip_comments",
         default=False,
         action="store_true",
         help="skips comments from posts",
@@ -72,7 +82,7 @@ def parse_args(args) -> main.Options:
         dest="api_key",
         help="set your api key. you only need to do this once. see https://old.reddit.com/r/reddit.com/wiki/api for getting one",
     )
-    
+
     parser.add_argument(
         "--agent",
         dest="user_agent",
@@ -92,10 +102,10 @@ def parse_args(args) -> main.Options:
         subreddit=parsed_args.subreddit,
         num_posts=parsed_args.num_posts,
         to_clear=parsed_args.to_clear,
-        skip_comments=parsed_args.to_skip,
+        sort_type=parsed_args.sort_type,
+        skip_comments=parsed_args.skip_comments,
         creds=creds,
     )
-
     return options
 
 

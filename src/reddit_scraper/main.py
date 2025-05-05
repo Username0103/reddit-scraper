@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import sys
 
-from reddit_scraper import logger
+from reddit_scraper import logger, SORT_TYPE
 
 from .get_credentials import RedditCredentials, handle_credentials, CREDS_CACHE
 from .get_posts import get_posts, create_instance
@@ -17,6 +17,7 @@ class Options:
     num_posts: int
     to_clear: bool
     skip_comments: bool
+    sort_type: SORT_TYPE
     creds: RedditCredentials
 
 

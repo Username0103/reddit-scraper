@@ -41,63 +41,46 @@ class BaseModel(Model):
         database = DB
 
 
-class RedditPost(BaseModel):
-    reddit_id = CharField(primary_key=True, max_length=15)
-    name = CharField(unique=True)
+class RedditContent(BaseModel):
+    name = CharField(primary_key=True, unique=True, max_length=15)
     author = TextField(null=True)
-    author_flair_text = TextField(null=True)
     created_utc = DateTimeField()
     distinguished = TextField(null=True)
     edited = BooleanField()
-    is_original_content = BooleanField()
-    is_self = BooleanField()
-    link_flair_template_id = TextField(null=True)
-    link_flair_text = TextField(null=True)
+    score = IntegerField(default=0)
+    subreddit = TextField()
+
+
+class RedditPost(RedditContent):
     locked = BooleanField()
     num_comments = IntegerField(default=0)
     over_18 = BooleanField()
-    permalink = TextField(unique=True)
-    saved = BooleanField(default=False)
-    score = IntegerField(default=0)
     selftext = TextField(null=True)
+    is_textual = BooleanField(default=False)
     spoiler = BooleanField()
-    stickied = BooleanField()
-    subreddit = TextField()
     title = TextField()
     upvote_ratio = FloatField(null=True)
-    url = TextField()
 
 
-class RedditComment(BaseModel):
-    reddit_id = CharField(primary_key=True, max_length=15)
-    post = ForeignKeyField(RedditPost, backref="comments", field=RedditPost.reddit_id)
+class RedditComment(RedditContent):
+    post = ForeignKeyField(RedditPost, backref="comments", field=RedditPost.name)
     parent_id = CharField(null=True, max_length=15, index=True)
-    author = TextField(null=True)
-    body = TextField()
-    created_utc = DateTimeField()
-    distinguished = TextField(null=True)
-    edited = BooleanField()
-    is_submitter = BooleanField()
-    link_id = CharField(max_length=15)
-    permalink = TextField(unique=True)
+    body = TextField(null=True)
     saved = BooleanField(default=False)
-    score = IntegerField(default=0)
-    stickied = BooleanField()
-    subreddit = TextField()
-    subreddit_id = CharField(max_length=15)
+    stickied = BooleanField(default=False)
     depth = IntegerField()
 
 
 def append_db(data: RedditData) -> None:
     try:
         with DB.atomic():
-            logger.debug(f"saving post: {data.post.get('reddit_id', '?')}")
+            logger.debug(f"saving post: {data.post.get('name', '?')}")
             RedditPost.insert(data.post).on_conflict_replace().execute()
             if data.comments:
-                append_comments(data.comments, data.post["reddit_id"])
+                append_comments(data.comments, data.post["name"])
     except Exception as e:
         logger.error(
-            f"database post saving error! {data.post['reddit_id']}: error {e}",
+            f"database post saving error! {data.post['name']}: error {e}",
             exc_info=True,
         )
 
@@ -108,7 +91,7 @@ def append_comments(comments: list[dict], post_id: str) -> None:
 
     for comment_data in comments:
         replies = comment_data.get("replies", [])
-        comment_data['post'] = comment_data['link_id']
+        comment_data["post"] = post_id
         if replies:
             to_recurse.extend(replies)
         no_replies = {
@@ -119,7 +102,7 @@ def append_comments(comments: list[dict], post_id: str) -> None:
     if to_save:
         try:
             for comment in to_save:
-                logger.debug(f"saving comments: {comment.get('reddit_id', '?')}")
+                logger.debug(f"saving comments: {comment.get('name', '???')}")
                 RedditComment.insert(comment).on_conflict_replace().execute()
         except Exception as e:
             logger.error(
