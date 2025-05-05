@@ -1,12 +1,55 @@
+from __future__ import annotations
 
-import logging
+from dataclasses import dataclass
+import sys
+
+from reddit_scraper import logger
+
+from .get_credentials import RedditCredentials, handle_credentials, CREDS_CACHE
+from .get_posts import get_posts, create_instance
+from .database import append_db, DB, RedditComment, RedditPost
 
 
-logger = logging.getLogger(__name__)
+@dataclass
+class Options:
+    loglevel: int | None
+    subreddit: str
+    num_posts: int
+    to_clear: bool
+    skip_comments: bool
+    creds: RedditCredentials
 
-def run() -> None:
-    logger.info("Program has started up")
-    pass
+
+def check_options(args: Options) -> None:
+    if args.to_clear:
+        if CREDS_CACHE.exists():
+            CREDS_CACHE.unlink()
+            print("Succesfully cleared credentials cache")
+            sys.exit(0)
+        print("Did not succesfully cleared credentials cache, as they did not exist.")
+        sys.exit(1)
+
+
+def run(args: Options) -> None:
+    logger.info(f"Program has started up with argv {args.__dict__}")
+    check_options(args)
+    if CREDS_CACHE.exists():
+        logger.info(f"Program is using cached credentials from {str(CREDS_CACHE)}")
+    args.creds = handle_credentials(args.creds)
+    logger.info(f"Got credentials: {(args.creds).__dict__}")
+    api = create_instance(args.creds)
+    post_generator = get_posts(api, args)
+
+    DB.connect(reuse_if_open=True)
+    DB.create_tables([RedditPost, RedditComment], safe=True)
+    logger.info(f"connected to database: {DB}")
+    try:
+        for reddit_data in post_generator:
+            append_db(reddit_data)
+    except KeyboardInterrupt:
+        print("Exited.")
+    print("Finished writing to database with all posts found")
+
 
 if __name__ == "__main__":
-    run()
+    print("enter rdscp or reddit-scraper to run")

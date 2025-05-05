@@ -1,3 +1,7 @@
+# custom
+
+reddit-scraper.db*
+
 # Temporary and binary files
 *~
 *.py[cod]
