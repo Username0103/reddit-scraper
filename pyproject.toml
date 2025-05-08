@@ -8,8 +8,8 @@ dynamic = ["version"]
 authors = [
     { "name" = "Username0103", "email" = "Username0103@users.noreply.github.com" },
 ]
-description = "Scrapes reddit to add to an sequel database"
-readme = "README.rst"
+description = "Scrapes reddit to add to an SQLite database"
+readme = "README.md"
 requires-python = ">=3.10"
 keywords = [
 
@@ -28,12 +28,14 @@ classifiers = [
     "Topic :: Utilities",
 ]
 dependencies = [
-
+    "praw~=7.8.1",
+    "peewee~=3.18.1 ",
+    "platformdirs~=4.3.7",
 ]
 
 [project.urls]
-homepage = "https://github.com/Username0103/AI-TUI"
-issues = "https://github.com/Username0103/AI-TUI/issues"
+homepage = "https://github.com/Username0103/reddit-scraper "
+issues = "https://github.com/Username0103/reddit-scraper/issues"
 
 [project.scripts]
 reddit-scraper = "reddit_scraper.entry:run"
