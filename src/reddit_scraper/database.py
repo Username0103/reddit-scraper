@@ -59,6 +59,7 @@ class RedditPost(RedditContent):
     is_textual = BooleanField(default=False)
     spoiler = BooleanField()
     title = TextField()
+    img_link_or_permalink = TextField()
     upvote_ratio = FloatField(null=True)
 
 

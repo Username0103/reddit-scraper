@@ -12,23 +12,24 @@ def parse_args(args) -> main.Options:
         prog="rdscp",
     )
     parser.add_argument(
+        "-V",
         "--version",
         action="version",
         version=f"reddit-scraper {__version__}",
     )
     parser.add_argument(
-        "-v",
-        "--verbose",
+        "-q",
+        "--quiet",
         dest="loglevel",
-        help="set loglevel to INFO",
+        help="set loglevel to WARN",
         action="store_const",
-        const=logging.INFO,
+        const=logging.WARN,
     )
     parser.add_argument(
         "-vv",
         "--debug",
         dest="loglevel",
-        help="set loglevel to DEBUG",
+        help="set loglevel to DEBUG, not recommended.",
         action="store_const",
         const=logging.DEBUG,
     )
@@ -36,16 +37,16 @@ def parse_args(args) -> main.Options:
         "-s",
         "--subreddit",
         dest="subreddit",
-        default="all",
-        help='select subreddit, does NOT include the leading the r/. defaults to "all"',
+        default="test",
+        help='select subreddit, does NOT include the leading the r/. defaults to "test"',
     )
     parser.add_argument(
         "-n",
         "--post-number",
         dest="num_posts",
-        default=5,
+        default=20,
         type=int,
-        help="number of posts to archive. defaults to 5. set to -1 so it runs until you press ctrl-c",
+        help="number of posts to archive. defaults to 20. set to -1 so it runs until you press ctrl-c",
     )
     sort_types = get_args(SORT_TYPE)
     parser.add_argument(
@@ -90,6 +91,9 @@ def parse_args(args) -> main.Options:
         help=f'set your user agent. defaults to "{DEFAULT_UA}".',
     )
     parsed_args = parser.parse_args(args)
+
+    if not parsed_args.loglevel:
+        parsed_args.loglevel = logging.INFO
 
     creds = main.RedditCredentials(
         client_id=parsed_args.client_id,

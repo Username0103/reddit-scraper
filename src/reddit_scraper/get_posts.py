@@ -9,7 +9,7 @@ from datetime import datetime
 import praw
 from praw.models import Comment, Submission
 from praw.models.comment_forest import CommentForest
-from prawcore import Forbidden
+from prawcore import Forbidden, Redirect
 
 from reddit_scraper import logger
 from .database import RedditPost
@@ -39,7 +39,14 @@ def format_comments(
     serialized = []
     for comment in comments_list:
         if isinstance(comment, CommentForest):
-            logger.info(f"skipped comment {comment.id}")
+            logger.info(
+                f"skipped comment {comment.id} due to comment having unknown children"
+            )
+            continue
+        if str(comment.author) == "AutoModerator":
+            logger.debug(
+                f"skipped comment {comment.id} due to being made by automoderator"
+            )
             continue
         serialized.append(
             {
@@ -80,6 +87,7 @@ def get_post_data(post: Submission) -> dict:
         "subreddit": str(post.subreddit),
         "title": post.title,
         "upvote_ratio": post.upvote_ratio,
+        "img_link_or_permalink": post.url,
     }
 
 
@@ -95,6 +103,7 @@ def get_db_ids() -> list[str]:
         return list(ids)
     return []
 
+
 def make_sort(api: praw.Reddit, options: Options) -> Iterator[Submission]:
     sort = options.sort_type
     sub = api.subreddit(options.subreddit)
@@ -107,15 +116,17 @@ def make_sort(api: praw.Reddit, options: Options) -> Iterator[Submission]:
 
 def get_posts(api: praw.Reddit, options: Options) -> Generator[Any, None, None]:
     max_posts = options.num_posts if options.num_posts != -1 else math.inf
-    posts = make_sort(api, options)
     i = 0
     ids = get_db_ids()
+    has_broken = False
     try:
+        posts = make_sort(api, options)
         for post in posts:
             if not post.stickied or post.num_comments < 50 or options.skip_comments:
                 if post.name not in ids:
                     i += 1
                     if i > max_posts:
+                        has_broken = True
                         break
                     ids.append(post.name)
                     logger.info(f"Found post: {post.name} on r/{str(post.subreddit)}")
@@ -127,9 +138,27 @@ def get_posts(api: praw.Reddit, options: Options) -> Generator[Any, None, None]:
 
                     yield RedditData(get_post_data(post), comment_data)
                 else:
-                    logger.info(f"Skipped post: {post.name} on r/{str(post.subreddit)} due to already being archived")
+                    logger.debug(
+                        f"Skipped post: {post.name} on r/{str(post.subreddit)}"
+                        " due to already being archived"
+                    )
             else:
-                logger.info(f"Skipped post: {post.name} on r/{str(post.subreddit)} due to being stickied post with tons of comments")
+                logger.debug(
+                    f"Skipped post: {post.name} on r/{str(post.subreddit)}"
+                    " due to being stickied post with tons of comments"
+                )
     except Forbidden:
-        logger.error("Recieved 403 forbidden response. Double check your API key and create a new reddit application if nothing else works. Make sure to select the script type of application.")
+        logger.error(
+            "Recieved 403 forbidden response. Double check your API key and create"
+            " a new reddit application if nothing else works. "
+            "Make sure to select the script type of application."
+        )
         sys.exit(1)
+    except Redirect:
+        logger.error(
+            "Invalid subreddit. Check if it's not privated"
+        )
+        sys.exit(1)
+
+    if not has_broken:
+        logger.warn("Reached end of submissions without reaching target.")

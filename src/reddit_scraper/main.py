@@ -32,21 +32,24 @@ def check_options(args: Options) -> None:
 
 
 def run(args: Options) -> None:
-    logger.info(f"Program has started up with argv {args.__dict__}")
+    logger.info("Program has started up.")
     check_options(args)
     if CREDS_CACHE.exists():
-        logger.info(f"Program is using cached credentials from {str(CREDS_CACHE)}")
+        logger.debug(f"Program is using cached credentials from {str(CREDS_CACHE)}")
     args.creds = handle_credentials(args.creds)
-    logger.info(f"Got credentials: {(args.creds).__dict__}")
+    logger.info("Got credentials.")
     api = create_instance(args.creds)
     post_generator = get_posts(api, args)
 
     DB.connect(reuse_if_open=True)
     DB.create_tables([RedditPost, RedditComment], safe=True)
-    logger.info(f"connected to database: {DB}")
+    logger.info("connected to database.")
     try:
         for reddit_data in post_generator:
-            append_db(reddit_data)
+            if reddit_data:
+                append_db(reddit_data)
+            else:
+                break
     except KeyboardInterrupt:
         print("Exited.")
     print("Finished writing to database with all posts found")
