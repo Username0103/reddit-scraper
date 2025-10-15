@@ -27,7 +27,7 @@ Reddit Scraper is a Python-based tool designed to scrape posts and comments from
 1. **Clone the Repository**
 
    ```bash
-   git clone https://github.com/Username0103/AI-TUI.git
+   git clone https://github.com/Username0103/reddit-scraper.git
    cd AI-TUI
    ```
 
