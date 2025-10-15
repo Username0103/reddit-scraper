@@ -1,8 +1,3 @@
-
-Scrapes reddit to add to an SQLite database.
-
-I don't feel like writing a readme so here's the AI explaining stuff:
-
 # Reddit Scraper
 
 ![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
